@@ -69,6 +69,7 @@ PHP_RINIT_FUNCTION(advanced_serializer)
 {
     zend_function *orig;
     
+	/* Override serialize with our own function */
 	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
 	ASERIALIZER_G(orig_serialize_func) = orig->internal_function.handler;
 	orig->internal_function.handler = zif_advanced_serialize;
@@ -88,13 +89,25 @@ PHP_MINIT_FUNCTION(advanced_serializer)
     return SUCCESS;
 }
 
+ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
+{
+	zend_function *orig;
+	TSRMLS_FETCH();
+	
+	/* Reset serialize to the original function */
+	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
+	orig->internal_function.handler = ASERIALIZER_G(orig_serialize_func);
+	return SUCCESS;
+}
+
 PHP_FUNCTION(advanced_serialize)
 {
     if (!ASERIALIZER_G(overload_serialize)) {
 		ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		return;
 	}
-    RETURN_STRING("Serializer!", 1);
+    
+    RETURN_STRING("Serialized!", 1);
 }
 
 PHP_FUNCTION(set_serialize_normalizer)
