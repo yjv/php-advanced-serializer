@@ -24,3 +24,6 @@
 .libs
 autom4te.cache
 build
+.deps
+*.lo
+*.la
