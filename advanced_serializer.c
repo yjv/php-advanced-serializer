@@ -4,10 +4,33 @@
 
 #include "php.h"
 #include "php_advanced_serializer.h"
+#include "zend_interfaces.h"
 
-static function_entry advanced_serializer_functions[] = {
-    PHP_FE(advanced_serialize, NULL)
+zend_class_entry *serialize_normalizer_ce;
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_normalize, 0, 0, 1)
+    ZEND_ARG_INFO(0, object)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_set_serialize_normalizer, 0, 0, 2)
+    ZEND_ARG_INFO(0, class_name)
+    ZEND_ARG_OBJ_INFO(0, normalizer, SerializeNormalizerInterface, false)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_serialize, 0, 0, 1)
+    ZEND_ARG_INFO(0, data)
+ZEND_END_ARG_INFO()
+
+
+static zend_function_entry advanced_serializer_functions[] = {
+    PHP_FE(advanced_serialize, arginfo_advanced_serialize)
+    PHP_FE(set_serialize_normalizer, arginfo_set_serialize_normalizer)
     {NULL, NULL, NULL}
+};
+
+const zend_function_entry serialize_normalizer_functions[] = {
+    PHP_ABSTRACT_ME(SerializeNormalizerInterface, normalize, arginfo_normalize)
+    PHP_FE_END
 };
 
 zend_module_entry advanced_serializer_module_entry = {
@@ -16,7 +39,7 @@ zend_module_entry advanced_serializer_module_entry = {
 #endif
     PHP_ADVANCED_SERIALIZER_EXTNAME,
     advanced_serializer_functions,
-    NULL,
+    PHP_MINIT(advanced_serializer),
     NULL,
     NULL,
     NULL,
@@ -31,7 +54,30 @@ zend_module_entry advanced_serializer_module_entry = {
 ZEND_GET_MODULE(advanced_serializer)
 #endif
 
+PHP_MINIT_FUNCTION(advanced_serializer)
+{
+    zend_class_entry tmp_ce;
+    INIT_CLASS_ENTRY(tmp_ce, "SerializeNormalizerInterface", serialize_normalizer_functions);
+    serialize_normalizer_ce = zend_register_internal_interface(&tmp_ce TSRMLS_CC);
+
+    return SUCCESS;
+}
+
 PHP_FUNCTION(advanced_serialize)
 {
     RETURN_STRING("Hello World", 1);
+}
+
+PHP_FUNCTION(set_serialize_normalizer)
+{
+    zval *obj;
+    char *class_name;
+    int *class_name_len;
+    
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sO", &class_name, &class_name_len, &obj, serialize_normalizer_ce) == FAILURE) {
+    
+    	RETURN_FALSE;
+    }
+    
+    RETURN_TRUE;
 }
