@@ -49,8 +49,12 @@ zend_module_entry advanced_serializer_module_entry = {
     NULL,
 #if ZEND_MODULE_API_NO >= 20010901
     PHP_ADVANCED_SERIALIZER_VERSION,
+    PHP_MODULE_GLOBALS(advanced_serializer),
 #endif
-    STANDARD_MODULE_PROPERTIES
+	NULL,
+    NULL,	
+    ZEND_MODULE_POST_ZEND_DEACTIVATE_N(advanced_serializer),
+    STANDARD_MODULE_PROPERTIES_EX
 };
 
 #ifdef COMPILE_DL_ADVANCED_SERIALIZER
@@ -89,7 +93,7 @@ PHP_MINIT_FUNCTION(advanced_serializer)
     return SUCCESS;
 }
 
-ZEND_MODULE_POST_ZEND_DEACTIVATE_D(xdebug)
+ZEND_MODULE_POST_ZEND_DEACTIVATE_D(advanced_serializer)
 {
 	zend_function *orig;
 	TSRMLS_FETCH();
