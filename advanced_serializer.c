@@ -182,7 +182,6 @@ PHP_FUNCTION(set_serialize_normalizer)
     }
     
     php_printf("class: %d\n", Z_REFCOUNT_P(normalizer));
-    Z_OBJ_HANDLER(normalizer, add_ref)();
     zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len, &normalizer, sizeof(zval *), NULL);
     
     RETURN_TRUE;
