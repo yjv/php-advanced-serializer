@@ -97,8 +97,8 @@ PHP_RINIT_FUNCTION(advanced_serializer)
 	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
 	ASERIALIZER_G(orig_serialize_func) = orig->internal_function.handler;
 	orig->internal_function.handler = zif_advanced_serialize;
-	ALLOC_HASHTABLE(advanced_serializer_globals->registered_normalizers);	
-	zend_hash_init(advanced_serializer_globals->registered_normalizers, 0, NULL, ZVAL_PTR_DTOR, 1);    
+	ALLOC_HASHTABLE(ASERIALIZER_G(registered_normalizers));	
+	zend_hash_init(ASERIALIZER_G(registered_normalizers), 0, NULL, ZVAL_PTR_DTOR, 1);    
 	
 	return SUCCESS;
 }
@@ -121,8 +121,8 @@ PHP_MINIT_FUNCTION(advanced_serializer)
 
 PHP_RSHUTDOWN_FUNCTION(advanced_serializer)
 {
-	zend_hash_destroy(advanced_serializer_globals->registered_normalizers);	
-	FREE_HASHTABLE(advanced_serializer_globals->registered_normalizers);
+	zend_hash_destroy(ASERIALIZER_G(registered_normalizers));	
+	FREE_HASHTABLE(ASERIALIZER_G(registered_normalizers));
     return SUCCESS;
 }
 
@@ -157,7 +157,7 @@ PHP_FUNCTION(advanced_serialize)
 		return;
     }
     
-    zval *normalizer;
+    zval **normalizer;
 	zend_class_entry * ce = Z_OBJCE_P(data);
     
     if (zend_hash_find(ASERIALIZER_G(registered_normalizers), ce->name, ce->name_length, (void **) &normalizer) != SUCCESS) {
@@ -185,7 +185,7 @@ PHP_FUNCTION(set_serialize_normalizer)
     	RETURN_FALSE;
     }
     
-    zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len + 1, &normalizer, sizeof(zval *), NULL);
+    zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len, &normalizer, sizeof(zval *), NULL);
   
     RETURN_TRUE;
 }
@@ -203,28 +203,29 @@ PHP_FUNCTION(get_registered_normalizers)
 
 int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC)
 {
-	zval *normalizer;
+	zval **normalizer;
     
-    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length + 1, (void **) &normalizer) != SUCCESS)
+    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length, (void **)&normalizer) != SUCCESS)
     {
     	return FAILURE;
     }
-    
-    php_printf("class: %d\n", normalizer);
-    php_printf("class: %d\n", Z_REFCOUNT_P(normalizer));
 
-    zend_class_entry * ce = Z_OBJCE_P(normalizer);
-    zval *retval;
+    zend_class_entry * ce = Z_OBJCE_PP(normalizer);
+    zval *retval;    
     zval *properties;
+	MAKE_STD_ZVAL(properties);
+	Z_TYPE_P(properties) = IS_ARRAY;
+	Z_ARRVAL_P(properties) = Z_OBJ_HT_P(object)->get_properties((object) TSRMLS_CC);
+	
+    zend_call_method_with_2_params(normalizer, ce, NULL, "normalize", &retval, object, properties);
+    
+	Z_ARRVAL_P(properties) = NULL;
+	zval_ptr_dtor(&properties);
+
     int result;
 	smart_str buf = {0};
 	php_serialize_data_t var_hash;
-	MAKE_STD_ZVAL(properties);
-	Z_TYPE_P(properties) = IS_ARRAY;
-	Z_ARRVAL_P(properties) = HASH_OF(object);
-	
-    zend_call_method_with_2_params(&normalizer, ce, NULL, "normalize", &retval, object, properties);
-    
+
     if (!retval || EG(exception)) {
         result = FAILURE;
     } else {
@@ -233,11 +234,11 @@ int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer,
             /* we could also make this '*buf_len = 0' but this allows to skip variables */
             zval_ptr_dtor(&retval);
             return FAILURE;
-        case IS_ARRAY:
+        case IS_ARRAY:	
 			PHP_VAR_SERIALIZE_INIT(var_hash);
     		php_var_serialize(&buf, &retval, &var_hash TSRMLS_CC);
     		PHP_VAR_SERIALIZE_DESTROY(var_hash);            
-    		*buffer = (unsigned char*)estrndup(buf.c, buf.len);
+    		*buffer = (unsigned char*)buf.c;
             *buf_len = buf.len;
             result = SUCCESS;
             break;
