@@ -85,6 +85,10 @@ static void php_advanced_serializer_init_globals(zend_advanced_serializer_global
 {
 }
 
+static void php_advanced_serializer_destroy_globals(zend_advanced_serializer_globals *advanced_serializer_globals)
+{
+}
+
 PHP_RINIT_FUNCTION(advanced_serializer)
 {
     zend_function *orig;
@@ -93,15 +97,15 @@ PHP_RINIT_FUNCTION(advanced_serializer)
 	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
 	ASERIALIZER_G(orig_serialize_func) = orig->internal_function.handler;
 	orig->internal_function.handler = zif_advanced_serialize;
+	ALLOC_HASHTABLE(advanced_serializer_globals->registered_normalizers);	
+	zend_hash_init(advanced_serializer_globals->registered_normalizers, 0, NULL, ZVAL_PTR_DTOR, 1);    
 	
-	ALLOC_HASHTABLE(ASERIALIZER_G(registered_normalizers));	
-	zend_hash_init(ASERIALIZER_G(registered_normalizers), 0, NULL, ZVAL_PTR_DTOR, 0);    
 	return SUCCESS;
 }
 
 PHP_MINIT_FUNCTION(advanced_serializer)
 {
-    ZEND_INIT_MODULE_GLOBALS(advanced_serializer, php_advanced_serializer_init_globals, NULL);
+    ZEND_INIT_MODULE_GLOBALS(advanced_serializer, php_advanced_serializer_init_globals, php_advanced_serializer_destroy_globals);
 
     REGISTER_INI_ENTRIES();
 	
@@ -117,8 +121,8 @@ PHP_MINIT_FUNCTION(advanced_serializer)
 
 PHP_RSHUTDOWN_FUNCTION(advanced_serializer)
 {
-	zend_hash_destroy(ASERIALIZER_G(registered_normalizers));	
-	FREE_HASHTABLE(ASERIALIZER_G(registered_normalizers));
+	zend_hash_destroy(advanced_serializer_globals->registered_normalizers);	
+	FREE_HASHTABLE(advanced_serializer_globals->registered_normalizers);
     return SUCCESS;
 }
 
@@ -160,7 +164,7 @@ PHP_FUNCTION(advanced_serialize)
     	
 		ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		return;
-	}
+	}	
 	
 	ce->serialize = advanced_serialize_proxy_to_normalizer;
     
@@ -181,9 +185,8 @@ PHP_FUNCTION(set_serialize_normalizer)
     	RETURN_FALSE;
     }
     
-    php_printf("class: %d\n", Z_REFCOUNT_P(normalizer));
-    zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len, &normalizer, sizeof(zval *), NULL);
-    
+    zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len + 1, &normalizer, sizeof(zval *), NULL);
+  
     RETURN_TRUE;
 }
 
@@ -191,23 +194,24 @@ PHP_FUNCTION(get_registered_normalizers)
 {
 	HashTable * copy;
 	ALLOC_HASHTABLE(copy);
+	zend_hash_init(copy, 0, NULL, ZVAL_PTR_DTOR, 0);    
 	zend_hash_copy(copy, ASERIALIZER_G(registered_normalizers), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *));
 
 	Z_TYPE_P(return_value) = IS_ARRAY;
 	Z_ARRVAL_P(return_value) = copy;
-	
-	
 }
 
 int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC)
 {
 	zval *normalizer;
     
-    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length, (void **) &normalizer) != SUCCESS)
+    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length + 1, (void **) &normalizer) != SUCCESS)
     {
+    	return FAILURE;
     }
     
-    php_printf("class: %d\n", Z_TYPE_P(normalizer));
+    php_printf("class: %d\n", normalizer);
+    php_printf("class: %d\n", Z_REFCOUNT_P(normalizer));
 
     zend_class_entry * ce = Z_OBJCE_P(normalizer);
     zval *retval;
