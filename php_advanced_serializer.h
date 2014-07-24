@@ -20,16 +20,36 @@ ZEND_END_MODULE_GLOBALS(advanced_serializer)
 #define ASERIALIZER_G(v) (advanced_serializer_globals.v)
 #endif
 
+typedef struct _advanced_serializer_normalization_data {
+	zval *normalizer;
+	zval *denormalizer;
+	int (*original_serialize)(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC);
+	int (*original_unserialize)(zval **object, zend_class_entry *ce, const unsigned char *buf, zend_uint buf_len, zend_unserialize_data *data TSRMLS_DC);
+	zend_class_entry *object_class_entry;
+} advanced_serializer_normalization_data;
+
+#define AS_GET_NORMALIZATION_DATA(class_name, class_name_len, normalizer_data_ptr_ptr) \
+	if(zend_hash_find(ASERIALIZER_G(registered_normalizers), class_name, class_name_len, (void **)&normalizer_data_ptr_ptr) == FAILURE) {    \
+		advanced_serializer_normalization_data *normalizer_data_ptr = pemalloc(sizeof(advanced_serializer_normalization_data), 1);                \
+		zend_hash_update(ASERIALIZER_G(registered_normalizers), class_name, class_name_len, (void **)&normalizer_data_ptr, sizeof(advanced_serializer_normalization_data *), NULL);		\
+		normalizer_data_ptr_ptr = &normalizer_data_ptr;        																					\
+	}
+	
+#define ADVANCED_SERIALIZER_NORMALIZATION_DATA_DTOR (void (*)(void *))advanced_serializer_normalization_data_dtor																																			\
+
 PHP_MINIT_FUNCTION(advanced_serializer);
 PHP_RINIT_FUNCTION(advanced_serializer);
 PHP_RSHUTDOWN_FUNCTION(advanced_serializer);
 ZEND_MODULE_POST_ZEND_DEACTIVATE_D(advanced_serializer);
 
 PHP_FUNCTION(advanced_serialize);
-PHP_FUNCTION(set_serialize_normalizer);
-PHP_FUNCTION(get_registered_normalizers);
+PHP_FUNCTION(advanced_serializer_set_normalizer);
+PHP_FUNCTION(advanced_serializer_get_normalizers);
 int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC);
 int advanced_unserialize_proxy_to_denormalizer(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC);
+void restore_serialize_handlers();
+void replace_serialize_handlers();
+void advanced_serializer_normalization_data_dtor(advanced_serializer_normalization_data *data);
 
 extern zend_module_entry advanced_serializer_module_entry;
 #define phpext_advanced_serializer_ptr &advanced_serializer_module_entry

@@ -21,12 +21,12 @@ public function unserialize($serialized)
 }
 
 
-set_serialize_normalizer('stdClass', $normalizer = new StdClassNormalizer());
-// var_dump(get_registered_normalizers());
+advanced_serializer_set_normalizer('stdClass', $normalizer = new StdClassNormalizer());
+// var_dump(advanced_serializer_get_normalizers());
 // var_dump(serialize('hello'));
 $object = new \stdClass();
-$object->hello = 'goodbye';
+// $object->hello = 'goodbye';
 var_dump(serialize($object));
-var_dump(serialize(new \Serializeable()));
+// var_dump(serialize(new \Serializeable()));
 // ini_set('advanced_serializer.overload_serialize', '0');
-var_dump(serialize('hello'));
+// var_dump(serialize('hello'));
