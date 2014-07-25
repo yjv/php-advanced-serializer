@@ -36,11 +36,11 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_set_unserialize_denormalizer, 0, 0, 2)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_serialize, 0, 0, 1)
-    ZEND_ARG_INFO(0, value)
+    ZEND_ARG_INFO(0, var)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_unserialize, 0, 0, 1)
-    ZEND_ARG_TYPE_INFO(0, value, IS_STRING, 0)
+    ZEND_ARG_TYPE_INFO(0, string, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
 
