@@ -15,12 +15,12 @@ zend_class_entry *unserialize_denormalizer_ce;
 
 ZEND_DECLARE_MODULE_GLOBALS(advanced_serializer);
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_normalize, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_normalize, 0, 0, 2)
     ZEND_ARG_INFO(0, object)
     ZEND_ARG_ARRAY_INFO(0, properties, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_denormalize, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_denormalize, 0, 0, 2)
     ZEND_ARG_INFO(0, object)
     ZEND_ARG_ARRAY_INFO(0, properties, 0)
 ZEND_END_ARG_INFO()
@@ -40,7 +40,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_serialize, 0, 0, 1)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_unserialize, 0, 0, 1)
-    ZEND_ARG_INFO(0, value)
+    ZEND_ARG_TYPE_INFO(0, value, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
 

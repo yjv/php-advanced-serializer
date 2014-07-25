@@ -2,7 +2,7 @@
 
 class StdClassNormalizer implements SerializeNormalizerInterface
 {
-	public function normalize($object, array $properties = null)
+	public function normalize($object, array $properties)
 	{
 		return $properties;
 		return ['key' => 'value'];
@@ -11,7 +11,7 @@ class StdClassNormalizer implements SerializeNormalizerInterface
 
 class StdClassDenormalizer implements UnserializeDenormalizerInterface
 {
-	public function denormalize($object, array $properties = null)
+	public function denormalize($object, array $properties)
 	{
 
 		return ['key2' => 'value'];
