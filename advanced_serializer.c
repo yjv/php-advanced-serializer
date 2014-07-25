@@ -39,9 +39,14 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_serialize, 0, 0, 1)
     ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_unserialize, 0, 0, 1)
+    ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 
 static zend_function_entry advanced_serializer_functions[] = {
     PHP_FE(advanced_serialize, arginfo_advanced_serialize)
+    PHP_FE(advanced_unserialize, arginfo_advanced_unserialize)
     PHP_FE(advanced_serializer_set_normalizer, arginfo_set_serialize_normalizer)
     PHP_FE(advanced_serializer_set_denormalizer, arginfo_set_unserialize_denormalizer)
 	PHP_FE(advanced_serializer_get_normalizers, NULL)
@@ -124,6 +129,10 @@ ZEND_MODULE_POST_ZEND_DEACTIVATE_D(advanced_serializer)
 	/* Reset serialize to the original function */
 	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
 	orig->internal_function.handler = ASERIALIZER_G(orig_serialize_func);
+	
+	/* Reset serialize to the original function */
+	zend_hash_find(EG(function_table), "unserialize", 12, (void **)&orig);
+	orig->internal_function.handler = ASERIALIZER_G(orig_unserialize_func);
 	return SUCCESS;
 }
 
@@ -135,6 +144,11 @@ PHP_RINIT_FUNCTION(advanced_serializer)
 	zend_hash_find(EG(function_table), "serialize", 10, (void **)&orig);
 	ASERIALIZER_G(orig_serialize_func) = orig->internal_function.handler;
 	orig->internal_function.handler = zif_advanced_serialize;
+	
+	/* Override unserialize with our own function */
+	zend_hash_find(EG(function_table), "unserialize", 12, (void **)&orig);
+	ASERIALIZER_G(orig_unserialize_func) = orig->internal_function.handler;
+	orig->internal_function.handler = zif_advanced_unserialize;
 	
 	return SUCCESS;
 }
@@ -173,6 +187,21 @@ PHP_FUNCTION(advanced_serialize)
 	return;
 }
 
+PHP_FUNCTION(advanced_unserialize)
+{
+    if (!ASERIALIZER_G(overload_serialize)) {
+		ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		return;
+	}
+    
+    replace_serialize_handlers();
+        
+	ASERIALIZER_G(orig_unserialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	
+	restore_serialize_handlers();
+	return;
+}
+
 PHP_FUNCTION(advanced_serializer_set_normalizer)
 {
     zval *normalizer;
@@ -185,7 +214,7 @@ PHP_FUNCTION(advanced_serializer_set_normalizer)
     	RETURN_FALSE;
     }
     
-    AS_GET_NORMALIZATION_DATA(class_name, class_name_len, normalization_data);
+    AS_GET_NORMALIZATION_DATA(class_name, (class_name_len + 1), normalization_data);
     
     if ((*normalization_data)->normalizer) {
 		
@@ -241,7 +270,7 @@ PHP_FUNCTION(advanced_serializer_set_denormalizer)
     	RETURN_FALSE;
     }
         
-    AS_GET_NORMALIZATION_DATA(class_name, class_name_len, normalization_data);
+    AS_GET_NORMALIZATION_DATA(class_name, (class_name_len + 1), normalization_data);
     
     if ((*normalization_data)->denormalizer) {
 		
@@ -290,7 +319,7 @@ int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer,
 	zval *normalizer;
 	advanced_serializer_normalization_data **normalization_data;
     
-    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length, (void **)&normalization_data) != SUCCESS)
+    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), Z_OBJCE_P(object)->name, Z_OBJCE_P(object)->name_length + 1, (void **)&normalization_data) != SUCCESS)
     {
     	return FAILURE;
     }
@@ -355,6 +384,8 @@ int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *
 // 
 //     zval_ptr_dtor(&zdata);
 
+php_printf("denormalizing\n");
+
     if (EG(exception)) {
         return FAILURE;
     } else {
@@ -380,7 +411,8 @@ void replace_serialize_handlers()
     	
     		zend_hash_get_current_key_ex(ASERIALIZER_G(registered_normalizers), &key, &key_len, NULL, 0, &pos);
 
-    		if (zend_lookup_class_ex(key, key_len, NULL, 0, &ce TSRMLS_CC) == FAILURE) {
+    		if (zend_lookup_class_ex(key, key_len - 1, NULL, 0, &ce TSRMLS_CC) == FAILURE) {
+            	php_printf("continuing: %s\n", key);
             	continue;
         	}
         	

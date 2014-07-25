@@ -11,6 +11,7 @@
 ZEND_BEGIN_MODULE_GLOBALS(advanced_serializer)
 	bool overload_serialize;
 	void (*orig_serialize_func)(INTERNAL_FUNCTION_PARAMETERS);
+	void (*orig_unserialize_func)(INTERNAL_FUNCTION_PARAMETERS);
 	HashTable *registered_normalizers;
 ZEND_END_MODULE_GLOBALS(advanced_serializer)
 
@@ -48,6 +49,7 @@ PHP_RSHUTDOWN_FUNCTION(advanced_serializer);
 ZEND_MODULE_POST_ZEND_DEACTIVATE_D(advanced_serializer);
 
 PHP_FUNCTION(advanced_serialize);
+PHP_FUNCTION(advanced_unserialize);
 PHP_FUNCTION(advanced_serializer_set_normalizer);
 PHP_FUNCTION(advanced_serializer_set_denormalizer);
 PHP_FUNCTION(advanced_serializer_get_normalizers);

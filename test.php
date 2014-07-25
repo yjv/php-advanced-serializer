@@ -37,6 +37,7 @@ var_dump(advanced_serializer_get_denormalizers());
 $object = new \stdClass();
 // $object->hello = 'goodbye';
 var_dump(serialize($object));
+var_dump(unserialize(serialize($object)));
 // var_dump(serialize(new \Serializeable()));
 // ini_set('advanced_serializer.overload_serialize', '0');
 // var_dump(serialize('hello'));
