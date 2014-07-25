@@ -12,7 +12,7 @@ class StdClassDenormalizer implements UnserializeDenormalizerInterface
 {
 	public function denormalize($object, array $properties = null)
 	{
-		return ['key' => 'value'];
+		return ['key2' => 'value'];
 	}
 }
 

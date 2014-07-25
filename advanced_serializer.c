@@ -373,24 +373,64 @@ int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer,
 
 int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *ce, const unsigned char *buf, zend_uint buf_len, zend_unserialize_data *data TSRMLS_DC)
 {
-//     zval * zdata;
-// 
-//     object_init_ex(*object, ce);
-// 
-//     MAKE_STD_ZVAL(zdata);
-//     ZVAL_STRINGL(zdata, (char*)buf, buf_len, 1);
-// 
-//     zend_call_method_with_1_params(object, ce, &ce->unserialize_func, "unserialize", NULL, zdata);
-// 
-//     zval_ptr_dtor(&zdata);
-
-php_printf("denormalizing\n");
-
-    if (EG(exception)) {
-        return FAILURE;
-    } else {
-        return SUCCESS;
+	zval *denormalizer;
+    zval zv, *properties = &zv;
+    zval *retval;    
+	php_unserialize_data_t var_hash;
+	advanced_serializer_normalization_data **normalization_data;
+	const unsigned char *max;
+    
+    if (zend_hash_find(ASERIALIZER_G(registered_normalizers), ce->name, ce->name_length + 1, (void **)&normalization_data) != SUCCESS)
+    {
+    	return FAILURE;
     }
+
+	denormalizer = (*normalization_data)->denormalizer;
+
+    zend_class_entry * denormalizer_ce = Z_OBJCE_P(denormalizer);
+	
+    object_init_ex(*object, ce);
+    
+    PHP_VAR_UNSERIALIZE_INIT(var_hash);
+
+	max = (unsigned char *)buf + buf_len;	
+
+	int result = FAILURE;
+
+    INIT_ZVAL(zv);
+    if (!php_var_unserialize(&properties, &buf, max, &var_hash TSRMLS_CC) || Z_TYPE_P(properties) != IS_ARRAY) {
+        zend_throw_exception(NULL, "Could not unserialize buffer", 0 TSRMLS_CC);
+        goto exit;
+    }
+
+    zend_call_method_with_2_params(&denormalizer, denormalizer_ce, NULL, "denormalize", &retval, *object, properties);
+
+	if (!retval || EG(exception)) {
+        goto exit;
+    }
+    switch(Z_TYPE_P(retval)) {
+    case IS_NULL:
+        /* we could also make this '*buf_len = 0' but this allows to skip variables */
+        zval_ptr_dtor(&retval);
+        goto exit;
+    case IS_ARRAY:	
+    	zend_hash_copy(
+        	zend_std_get_properties(*object TSRMLS_CC), Z_ARRVAL_P(retval),
+        	(copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *)
+    	);
+    	result = SUCCESS;
+        break;
+    default: /* failure */
+        result = FAILURE;
+        break;
+    }
+    zval_ptr_dtor(&retval);
+
+
+exit:
+    zval_dtor(properties);
+    PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
+	return result;
 }
 
 void replace_serialize_handlers()
