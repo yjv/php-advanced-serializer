@@ -334,39 +334,28 @@ int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer,
 	Z_ARRVAL_P(properties) = Z_OBJ_HT_P(object)->get_properties((object) TSRMLS_CC);
 	
     zend_call_method_with_2_params(&normalizer, ce, NULL, "normalize", &retval, object, properties);
-    
-	Z_ARRVAL_P(properties) = NULL;
-	zval_ptr_dtor(&properties);
 
     int result;
 	smart_str buf = {0};
 	php_serialize_data_t var_hash;
 
-    if (!retval || EG(exception)) {
+    if (!retval || EG(exception) || Z_TYPE_P(retval) != IS_ARRAY) {
         result = FAILURE;
     } else {
-        switch(Z_TYPE_P(retval)) {
-        case IS_NULL:
-            /* we could also make this '*buf_len = 0' but this allows to skip variables */
-            zval_ptr_dtor(&retval);
-            return FAILURE;
-        case IS_ARRAY:	
-			PHP_VAR_SERIALIZE_INIT(var_hash);
-    		php_var_serialize(&buf, &retval, &var_hash TSRMLS_CC);
-    		PHP_VAR_SERIALIZE_DESTROY(var_hash);            
-    		*buffer = (unsigned char*)buf.c;
-            *buf_len = buf.len;
-            result = SUCCESS;
-            break;
-        default: /* failure */
-            result = FAILURE;
-            break;
-        }
+		PHP_VAR_SERIALIZE_INIT(var_hash);
+    	php_var_serialize(&buf, &retval, &var_hash TSRMLS_CC);
+    	PHP_VAR_SERIALIZE_DESTROY(var_hash);            
+    	*buffer = (unsigned char*)buf.c;
+        *buf_len = buf.len;
+        result = SUCCESS;
         zval_ptr_dtor(&retval);
     }
-
+	
+	Z_ARRVAL_P(properties) = NULL;
+	zval_ptr_dtor(&properties);
+    
     if (result == FAILURE && !EG(exception)) {
-        zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%s::normalize() must return an array or NULL", ce->name);
+        zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%s::normalize() must return an array", ce->name);
     }
     return result;
 }
@@ -427,7 +416,10 @@ int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *
     zval_ptr_dtor(&retval);
 
 
-exit:
+exit: 
+    if (result == FAILURE && !EG(exception)) {
+        zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%s::denormalize() must return an array", denormalizer_ce->name);
+    }
     zval_dtor(properties);
     PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 	return result;
