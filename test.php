@@ -4,7 +4,6 @@ class StdClassNormalizer implements SerializeNormalizerInterface
 {
 	public function normalize($object, array $properties)
 	{
-		return $properties;
 		return ['key' => 'value'];
 	}
 }
@@ -35,11 +34,14 @@ advanced_serializer_set_normalizer('stdClass', new StdClassNormalizer());
 advanced_serializer_set_denormalizer('stdClass', new StdClassDenormalizer());
 var_dump(advanced_serializer_get_normalizers());
 var_dump(advanced_serializer_get_denormalizers());
-// var_dump(serialize('hello'));
+var_dump(serialize('hello'));
 $object = new \stdClass();
 $object->hello = 'goodbye';
 var_dump(serialize($object));
 var_dump(unserialize(serialize($object)));
-// var_dump(serialize(new \Serializeable()));
-// ini_set('advanced_serializer.overload_serialize', '0');
-// var_dump(serialize('hello'));
+var_dump(serialize(new \Serializeable()));
+ini_set('advanced_serializer.overload_serialization_functions', '0');
+var_dump(serialize('hello'));
+var_dump(serialize($object));
+var_dump(unserialize(serialize($object)));
+

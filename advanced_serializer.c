@@ -90,7 +90,7 @@ ZEND_GET_MODULE(advanced_serializer)
 #endif
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_BOOLEAN("advanced_serializer.overload_serialize", "1", PHP_INI_ALL, OnUpdateBool, overload_serialize, zend_advanced_serializer_globals, advanced_serializer_globals)
+	STD_PHP_INI_BOOLEAN("advanced_serializer.overload_serialization_functions", "1", PHP_INI_ALL, OnUpdateBool, overload_serialize, zend_advanced_serializer_globals, advanced_serializer_globals)
 PHP_INI_END()
 
 static void php_advanced_serializer_init_globals(zend_advanced_serializer_globals *advanced_serializer_globals)
