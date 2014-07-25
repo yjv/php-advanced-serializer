@@ -49,3 +49,4 @@ missing
 mkinstalldirs
 output.txt
 php
+run-tests.php

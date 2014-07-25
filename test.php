@@ -8,6 +8,14 @@ class StdClassNormalizer implements SerializeNormalizerInterface
 	}
 }
 
+class StdClassDenormalizer implements UnserializeDenormalizerInterface
+{
+	public function denormalize($object, array $properties = null)
+	{
+		return ['key' => 'value'];
+	}
+}
+
 class Serializeable implements Serializable
 {
 public function serialize()
@@ -21,8 +29,10 @@ public function unserialize($serialized)
 }
 
 
-advanced_serializer_set_normalizer('stdClass', $normalizer = new StdClassNormalizer());
-// var_dump(advanced_serializer_get_normalizers());
+advanced_serializer_set_normalizer('stdClass', new StdClassNormalizer());
+advanced_serializer_set_denormalizer('stdClass', new StdClassDenormalizer());
+var_dump(advanced_serializer_get_normalizers());
+var_dump(advanced_serializer_get_denormalizers());
 // var_dump(serialize('hello'));
 $object = new \stdClass();
 // $object->hello = 'goodbye';

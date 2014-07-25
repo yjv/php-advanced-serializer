@@ -22,12 +22,17 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_denormalize, 0, 0, 1)
     ZEND_ARG_INFO(0, object)
-    ZEND_ARG_INFO(0, properties)
+    ZEND_ARG_ARRAY_INFO(0, properties, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_set_serialize_normalizer, 0, 0, 2)
     ZEND_ARG_INFO(0, class_name)
     ZEND_ARG_OBJ_INFO(0, normalizer, SerializeNormalizerInterface, false)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_set_unserialize_denormalizer, 0, 0, 2)
+    ZEND_ARG_INFO(0, class_name)
+    ZEND_ARG_OBJ_INFO(0, denormalizer, UnserializeDenormalizerInterface, false)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_advanced_serialize, 0, 0, 1)
@@ -38,7 +43,9 @@ ZEND_END_ARG_INFO()
 static zend_function_entry advanced_serializer_functions[] = {
     PHP_FE(advanced_serialize, arginfo_advanced_serialize)
     PHP_FE(advanced_serializer_set_normalizer, arginfo_set_serialize_normalizer)
+    PHP_FE(advanced_serializer_set_denormalizer, arginfo_set_unserialize_denormalizer)
 	PHP_FE(advanced_serializer_get_normalizers, NULL)
+	PHP_FE(advanced_serializer_get_denormalizers, NULL)
     {NULL, NULL, NULL}
 };
 
@@ -90,7 +97,7 @@ static void php_advanced_serializer_init_globals(zend_advanced_serializer_global
 static void php_advanced_serializer_destroy_globals(zend_advanced_serializer_globals *advanced_serializer_globals)
 {
 	zend_hash_destroy(advanced_serializer_globals->registered_normalizers);	
-	pefree((advanced_serializer_globals->registered_normalizers), 1);
+	pefree(advanced_serializer_globals->registered_normalizers, 1);
 }
 
 PHP_MINIT_FUNCTION(advanced_serializer)
@@ -180,7 +187,13 @@ PHP_FUNCTION(advanced_serializer_set_normalizer)
     
     AS_GET_NORMALIZATION_DATA(class_name, class_name_len, normalization_data);
     
-	(*normalization_data)->normalizer = normalizer; 
+    if ((*normalization_data)->normalizer) {
+		
+		  zval_ptr_dtor(&((*normalization_data)->normalizer));  
+    }
+    
+    MAKE_STD_ZVAL((*normalization_data)->normalizer);
+	ZVAL_ZVAL((*normalization_data)->normalizer, normalizer, 1, 0); 
     RETURN_TRUE;
 }
 
@@ -189,11 +202,12 @@ PHP_FUNCTION(advanced_serializer_get_normalizers)
 	HashTable * copy;
 	char *key;
 	uint key_len;
+	zval *normalizer;
 	advanced_serializer_normalization_data **normalization_data;
 	HashPosition pos;
 	
 	ALLOC_HASHTABLE(copy);
-	zend_hash_init(copy, 0, NULL, ZVAL_PTR_DTOR, 0);  
+	zend_hash_init(copy, 0, NULL, ZVAL_PTR_DTOR, 0); 
 	
 	for (zend_hash_internal_pointer_reset_ex(ASERIALIZER_G(registered_normalizers), &pos);
     	zend_hash_get_current_data_ex(ASERIALIZER_G(registered_normalizers), (void **)&normalization_data, &pos) == SUCCESS;
@@ -204,9 +218,11 @@ PHP_FUNCTION(advanced_serializer_get_normalizers)
             continue;
         }
         
+        MAKE_STD_ZVAL(normalizer);
+		ZVAL_ZVAL(normalizer, (*normalization_data)->normalizer, 1, 0); 
+        
         zend_hash_get_current_key_ex(ASERIALIZER_G(registered_normalizers), &key, &key_len, NULL, 0, &pos);
-        zval_add_ref(&((*normalization_data)->normalizer));
-        zend_hash_update(ASERIALIZER_G(registered_normalizers), key, key_len, (void **)&((*normalization_data)->normalizer), sizeof(zval *), NULL);
+        zend_hash_update(copy, key, key_len, (void **)&normalizer, sizeof(zval *), NULL);
 	}
 
 	Z_TYPE_P(return_value) = IS_ARRAY;
@@ -227,17 +243,43 @@ PHP_FUNCTION(advanced_serializer_set_denormalizer)
         
     AS_GET_NORMALIZATION_DATA(class_name, class_name_len, normalization_data);
     
-	(*normalization_data)->denormalizer = denormalizer; 
-    RETURN_TRUE;
+    if ((*normalization_data)->denormalizer) {
+		
+		  zval_ptr_dtor(&((*normalization_data)->denormalizer));  
+    }
 
+    MAKE_STD_ZVAL((*normalization_data)->denormalizer);
+	ZVAL_ZVAL((*normalization_data)->denormalizer, denormalizer, 1, 0); 
+    RETURN_TRUE;
 }
 
 PHP_FUNCTION(advanced_serializer_get_denormalizers)
 {
 	HashTable * copy;
+	char *key;
+	uint key_len;
+	zval *denormalizer;
+	advanced_serializer_normalization_data **normalization_data;
+	HashPosition pos;
+	
 	ALLOC_HASHTABLE(copy);
-	zend_hash_init(copy, 0, NULL, ZVAL_PTR_DTOR, 0);    
-	zend_hash_copy(copy, ASERIALIZER_G(registered_normalizers), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *));
+	zend_hash_init(copy, 0, NULL, ZVAL_PTR_DTOR, 0); 
+	
+	for (zend_hash_internal_pointer_reset_ex(ASERIALIZER_G(registered_normalizers), &pos);
+    	zend_hash_get_current_data_ex(ASERIALIZER_G(registered_normalizers), (void **)&normalization_data, &pos) == SUCCESS;
+    	zend_hash_move_forward_ex(ASERIALIZER_G(registered_normalizers), &pos)
+	) {
+    	if (!(*normalization_data)->denormalizer) {
+
+            continue;
+        }
+        
+        MAKE_STD_ZVAL(denormalizer);
+		ZVAL_ZVAL(denormalizer, (*normalization_data)->denormalizer, 1, 0); 
+        
+        zend_hash_get_current_key_ex(ASERIALIZER_G(registered_normalizers), &key, &key_len, NULL, 0, &pos);
+        zend_hash_update(copy, key, key_len, (void **)&denormalizer, sizeof(zval *), NULL);
+	}
 
 	Z_TYPE_P(return_value) = IS_ARRAY;
 	Z_ARRVAL_P(return_value) = copy;
@@ -300,7 +342,7 @@ int advanced_serialize_proxy_to_normalizer(zval *object, unsigned char **buffer,
     return result;
 }
 
-int advanced_unserialize_proxy_to_denormalizer(zval *object, unsigned char **buffer, zend_uint *buf_len, zend_serialize_data *data TSRMLS_DC)
+int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *ce, const unsigned char *buf, zend_uint buf_len, zend_unserialize_data *data TSRMLS_DC)
 {
 //     zval * zdata;
 // 
@@ -345,12 +387,11 @@ void replace_serialize_handlers()
         	(*normalization_data)->object_class_entry = *ce;
         }
         
-    	if ((*normalization_data)->object_class_entry->serialize) {
-    	
-    		(*normalization_data)->original_serialize = (*normalization_data)->object_class_entry->serialize;
-    	}
+    	(*normalization_data)->original_serialize = (*normalization_data)->object_class_entry->serialize;
+    	(*normalization_data)->original_unserialize = (*normalization_data)->object_class_entry->unserialize;
 	
 		(*normalization_data)->object_class_entry->serialize = advanced_serialize_proxy_to_normalizer;
+		(*normalization_data)->object_class_entry->unserialize = advanced_unserialize_proxy_to_denormalizer;
 	}
 }
 
@@ -371,28 +412,24 @@ void restore_serialize_handlers()
             continue;
         }
 
-	
 		(*normalization_data)->object_class_entry->serialize = (*normalization_data)->original_serialize;
+		(*normalization_data)->original_serialize = NULL;
+		(*normalization_data)->object_class_entry->unserialize = (*normalization_data)->original_unserialize;
+		(*normalization_data)->original_unserialize = NULL;
 	}
 }
 
-void replace_deserialize_handlers()
+void advanced_serializer_normalization_data_dtor(advanced_serializer_normalization_data **data)
 {
-}
-
-void restore_deserialize_handlers()
-{
-}
-
-void advanced_serializer_normalization_data_dtor(advanced_serializer_normalization_data *data)
-{
-	if (data->normalizer) {
-		zval_ptr_dtor(&(data->normalizer));
+	TSRMLS_FETCH();
+	
+	if ((*data)->normalizer) {
+		zval_ptr_dtor(&((*data)->normalizer));
 	}
 	
-	if (data->denormalizer) {
-		zval_ptr_dtor(&(data->denormalizer));
+	if ((*data)->denormalizer) {
+		zval_ptr_dtor(&((*data)->denormalizer));
 	}
 			
-// 	pefree(data, 1);
+	efree((void *)(*data));
 }
