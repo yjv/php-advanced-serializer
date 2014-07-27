@@ -41,6 +41,15 @@ typedef struct _advanced_serializer_normalization_data {
 		normalizer_data_ptr_ptr = &normalizer_data_ptr;        																					\
 	}
 	
+#define AS_SET_NORMALIZATION_ZVAL(normalization_object, type) \
+    advanced_serializer_normalization_data **normalization_data; \
+    AS_GET_NORMALIZATION_DATA(class_name, (class_name_len + 1), normalization_data); \
+    if ((*normalization_data)->type) {								\
+		  zval_ptr_dtor(&((*normalization_data)->type));  			\
+    }																\
+    MAKE_STD_ZVAL((*normalization_data)->type);	\
+	ZVAL_ZVAL((*normalization_data)->type, normalization_object, 1, 0); 	\
+	
 #define ADVANCED_SERIALIZER_NORMALIZATION_DATA_DTOR (void (*)(void *))advanced_serializer_normalization_data_dtor																																			\
 
 PHP_MINIT_FUNCTION(advanced_serializer);

@@ -124,6 +124,7 @@ PHP_MINIT_FUNCTION(advanced_serializer)
 ZEND_MODULE_POST_ZEND_DEACTIVATE_D(advanced_serializer)
 {
 	zend_function *orig;
+	
 	TSRMLS_FETCH();
 	
 	/* Reset serialize to the original function */
@@ -166,19 +167,6 @@ PHP_FUNCTION(advanced_serialize)
 		return;
 	}
     
-    zval *data;
-
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &data) == FAILURE) {
-    
-    	RETURN_FALSE;
-    }
-    
-    if (Z_TYPE_P(data) != IS_OBJECT) {
-		
-		ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		return;
-    }
-    
     replace_serialize_handlers(1);
         
 	ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
@@ -190,7 +178,7 @@ PHP_FUNCTION(advanced_serialize)
 PHP_FUNCTION(advanced_unserialize)
 {
     if (!ASERIALIZER_G(overload_serialize)) {
-		ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		ASERIALIZER_G(orig_unserialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		return;
 	}
     
@@ -207,22 +195,13 @@ PHP_FUNCTION(advanced_serializer_set_normalizer)
     zval *normalizer;
     char *class_name;
     int class_name_len;
-    advanced_serializer_normalization_data **normalization_data;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sO", &class_name, &class_name_len, &normalizer, serialize_normalizer_ce) == FAILURE) {
     
     	RETURN_FALSE;
     }
     
-    AS_GET_NORMALIZATION_DATA(class_name, (class_name_len + 1), normalization_data);
-    
-    if ((*normalization_data)->normalizer) {
-		
-		  zval_ptr_dtor(&((*normalization_data)->normalizer));  
-    }
-    
-    MAKE_STD_ZVAL((*normalization_data)->normalizer);
-	ZVAL_ZVAL((*normalization_data)->normalizer, normalizer, 1, 0); 
+	AS_SET_NORMALIZATION_ZVAL(normalizer, normalizer);
     RETURN_TRUE;
 }
 
@@ -263,22 +242,14 @@ PHP_FUNCTION(advanced_serializer_set_denormalizer)
     zval *denormalizer;
     char *class_name;
     int class_name_len;
-    advanced_serializer_normalization_data **normalization_data;
     
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sO", &class_name, &class_name_len, &denormalizer, unserialize_denormalizer_ce) == FAILURE) {
     
     	RETURN_FALSE;
     }
-        
-    AS_GET_NORMALIZATION_DATA(class_name, (class_name_len + 1), normalization_data);
-    
-    if ((*normalization_data)->denormalizer) {
-		
-		  zval_ptr_dtor(&((*normalization_data)->denormalizer));  
-    }
 
-    MAKE_STD_ZVAL((*normalization_data)->denormalizer);
-	ZVAL_ZVAL((*normalization_data)->denormalizer, denormalizer, 1, 0); 
+	AS_SET_NORMALIZATION_ZVAL(denormalizer, denormalizer);
+        
     RETURN_TRUE;
 }
 
@@ -402,6 +373,9 @@ int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *
         /* we could also make this '*buf_len = 0' but this allows to skip variables */
         zval_ptr_dtor(&retval);
         goto exit;
+    case IS_BOOL:
+		result = Z_LVAL_P(retval) ? FAILURE : SUCCESS;    	
+    	break;
     case IS_ARRAY:	
     	zend_hash_copy(
         	zend_std_get_properties(*object TSRMLS_CC), Z_ARRVAL_P(retval),
@@ -418,7 +392,7 @@ int advanced_unserialize_proxy_to_denormalizer(zval **object, zend_class_entry *
 
 exit: 
     if (result == FAILURE && !EG(exception)) {
-        zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%s::denormalize() must return an array", denormalizer_ce->name);
+        zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%s::denormalize() must return an array or false", denormalizer_ce->name);
     }
     zval_dtor(properties);
     PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
@@ -484,8 +458,6 @@ void restore_serialize_handlers()
 
 void advanced_serializer_normalization_data_dtor(advanced_serializer_normalization_data **data)
 {
-	TSRMLS_FETCH();
-	
 	if ((*data)->normalizer) {
 		zval_ptr_dtor(&((*data)->normalizer));
 	}
