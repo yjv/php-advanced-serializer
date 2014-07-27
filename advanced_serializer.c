@@ -179,7 +179,7 @@ PHP_FUNCTION(advanced_serialize)
 		return;
     }
     
-    replace_serialize_handlers();
+    replace_serialize_handlers(1);
         
 	ASERIALIZER_G(orig_serialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	
@@ -194,7 +194,7 @@ PHP_FUNCTION(advanced_unserialize)
 		return;
 	}
     
-    replace_serialize_handlers();
+    replace_serialize_handlers(1);
         
 	ASERIALIZER_G(orig_unserialize_func)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	
@@ -425,7 +425,7 @@ exit:
 	return result;
 }
 
-void replace_serialize_handlers()
+void replace_serialize_handlers(int use_autoload)
 {
 	HashPosition pos;
 	char * key;
@@ -443,8 +443,7 @@ void replace_serialize_handlers()
     	
     		zend_hash_get_current_key_ex(ASERIALIZER_G(registered_normalizers), &key, &key_len, NULL, 0, &pos);
 
-    		if (zend_lookup_class_ex(key, key_len - 1, NULL, 0, &ce TSRMLS_CC) == FAILURE) {
-            	php_printf("continuing: %s\n", key);
+    		if (zend_lookup_class_ex(key, key_len - 1, NULL, use_autoload, &ce TSRMLS_CC) == FAILURE) {
             	continue;
         	}
         	
