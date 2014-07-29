@@ -37,7 +37,8 @@ the `denormalize` method must return an array or false. if an array is returned 
 if false is returned then then the unserialization will suppose that the denormalizer set the peorperties itself.
 
 
-###ini settings###
+ini settings
+------------
 there is currently one ini setting that this extension adds
 
 - `advanced_serializer.overload_serialization_functions` - this is 1 by default and tells the extension to overload the `serialize` and `unserialize` functions to use the normalizers when they are registered. if this is set to 0 then these functions will function as if the extension was not registered.
